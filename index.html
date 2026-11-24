@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudentHelper</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="logo">SH</div>
+      <div>
+        <h1>StudentHelper</h1>
+        <p>Your personal study assistant</p>
+      </div>
+    </header>
+
+    <section class="welcome">
+      <h2>What would you like to learn today?</h2>
+      <p>Choose a subject or type a question below.</p>
+    </section>
+
+    <section class="subjects" aria-label="Choose a subject">
+      <button class="subject-button" type="button" data-subject="Math">
+        📐 Math
+      </button>
+
+      <button class="subject-button" type="button" data-subject="Science">
+        🔬 Science
+      </button>
+
+      <button class="subject-button" type="button" data-subject="English">
+        📚 English
+      </button>
+
+      <button class="subject-button" type="button" data-subject="Social Studies">
+        🌎 Social Studies
+      </button>
+    </section>
+
+    <section class="chat-section">
+      <div class="chat-heading">
+        <h2>Chat with StudentHelper</h2>
+        <span class="online-status">● Ready to help</span>
+      </div>
+
+      <div id="chat" class="chat" aria-live="polite">
+        <div class="message bot-message">
+          Hi! I'm StudentHelper. Pick a subject or ask me a school question.
+          I'll do my best to explain it step by step!
+        </div>
+      </div>
+
+      <form id="chat-form" class="chat-form">
+        <input
+          id="user-input"
+          type="text"
+          placeholder="Ask me a question..."
+          autocomplete="off"
+          required
+        >
+
+        <button id="send-button" type="submit">Send</button>
+      </form>
+
+      <p class="small-note">
+        StudentHelper is a learning tool. Check important answers with your teacher or textbook.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
