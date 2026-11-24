@@ -1,5 +1,5 @@
 
-const API_URL = "https://studenthelper-4-p1spp82b0-leo-0729.vercel.app/api/chat";
+const API_URL = "https://studenthelper-4.vercel.app/api/chat";
 
 const chat = document.getElementById("chat");
 const form = document.getElementById("chat-form");
