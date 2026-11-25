@@ -1,85 +1,66 @@
+// Vercel serverless function: POST /api/chat
+// Needs an environment variable named ANTHROPIC_API_KEY in Vercel.
 
-export default async function handler(req, res) {
-  const allowedOrigin = "https://studenthelper-4.vercel.app";
+const SYSTEM_PROMPT =
+  "You are StudentHelper, a friendly study assistant for school students. " +
+  "Explain things step by step in simple language, use short examples, and " +
+  "check understanding with a quick follow-up question when helpful. " +
+  "For homework, guide the student toward the answer rather than just giving it.";
 
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
+module.exports = async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Use POST" });
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Method not allowed"
-    });
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    return res
+      .status(500)
+      .json({ error: "ANTHROPIC_API_KEY is not set in Vercel environment variables." });
+  }
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+  const messages = Array.isArray(body && body.messages) ? body.messages : [];
+  const clean = messages
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .slice(-20);
+
+  if (clean.length === 0 || clean[clean.length - 1].role !== "user") {
+    return res.status(400).json({ error: "Send at least one user message." });
   }
 
   try {
-    const { message, subject, grade } = req.body || {};
-
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({
-        error: "Please enter a question."
-      });
-    }
-
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: "AI key is not configured."
-      });
-    }
-
-    const response = await fetch(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4.1-mini",
-          instructions: `You are StudentHelper, a friendly AI tutor for grades 6–12.
-
-Help students understand all school subjects.
-Subject: ${subject || "General"}
-Grade: ${grade || "Not specified"}
-
-Explain answers step by step.
-Use age-appropriate language.
-Encourage learning.
-Never make up facts.`,
-          input: message
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("OpenAI error:", data);
-      return res.status(500).json({
-        error: "The AI tutor could not respond."
-      });
-    }
-
-    const answer = data.output
-      ?.flatMap(item => item.content || [])
-      .filter(item => item.type === "output_text")
-      .map(item => item.text)
-      .join("\n");
-
-    return res.status(200).json({
-      answer: answer || "Please try again."
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5-5",
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: clean,
+      }),
     });
 
-  } catch (error) {
-    console.error("Server error:", error);
+    const data = await r.json();
+    if (!r.ok) {
+      const msg = (data && data.error && data.error.message) || "The AI service returned an error.";
+      return res.status(r.status).json({ error: msg });
+    }
 
-    return res.status(500).json({
-      error: "Something went wrong."
-    });
+    const reply = (data.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+
+    return res.status(200).json({ reply: reply || "(no answer returned)" });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error: " + err.message });
   }
-}
+};
