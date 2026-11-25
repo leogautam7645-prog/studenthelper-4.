@@ -1,66 +1,54 @@
-// Vercel serverless function: POST /api/chat
-// Needs an environment variable named OPENAI_API_KEY in Vercel.
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudentHelper</title>
+  <style>
+    :root { --bg:#f5f7fb; --card:#fff; --ink:#1d2433; --accent:#3b6df0; --muted:#6b7488; --me:#e4ecff; --bot:#f0f2f6; --err:#fde8e8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+    header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+    .logo { width:44px; height:44px; border-radius:12px; background:var(--accent); color:#fff; display:grid; place-items:center; font-weight:700; }
+    h1 { margin:0; font-size:22px; }
+    header p { margin:0; color:var(--muted); font-size:14px; }
+    .subjects { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px; }
+    .subjects button { border:1px solid #d6dbe8; background:var(--card); padding:8px 14px; border-radius:999px; cursor:pointer; font-size:14px; }
+    .subjects button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .chat { background:var(--card); border-radius:16px; padding:16px; box-shadow:0 2px 10px rgba(20,30,60,.06); }
+    .status { font-size:13px; color:var(--muted); margin-bottom:10px; }
+    #log { display:flex; flex-direction:column; gap:10px; min-height:240px; max-height:55vh; overflow-y:auto; padding-right:4px; }
+    .msg { padding:10px 14px; border-radius:14px; max-width:88%; white-space:pre-wrap; line-height:1.5; }
+    .msg.user { background:var(--me); align-self:flex-end; }
+    .msg.bot { background:var(--bot); align-self:flex-start; }
+    .msg.error { background:var(--err); align-self:flex-start; }
+    form { display:flex; gap:8px; margin-top:14px; }
+    input { flex:1; padding:12px 14px; border:1px solid #d6dbe8; border-radius:12px; font-size:15px; }
+    form button { background:var(--accent); color:#fff; border:0; border-radius:12px; padding:0 20px; font-size:15px; cursor:pointer; }
+    form button:disabled { opacity:.6; cursor:default; }
+    footer { margin-top:14px; color:var(--muted); font-size:12px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">SH</div>
+      <div>
+        <h1>StudentHelper</h1>
+        <p>Your personal study assistant</p>
+      </div>
+    </header>
 
-const SYSTEM_PROMPT =
-  "You are StudentHelper, a friendly study assistant for school students. " +
-  "Explain things step by step in simple language, use short examples, and " +
-  "check understanding with a quick follow-up question when helpful. " +
-  "For homework, guide the student toward the answer rather than just giving it.";
+    <h2 style="font-size:17px;margin:0">What would you like to learn today?</h2>
+    <div class="subjects" id="subjects">
+      <button data-subject="Math">📐 Math</button>
+      <button data-subject="Science">🔬 Science</button>
+      <button data-subject="English">📚 English</button>
+      <button data-subject="Social Studies">🌎 Social Studies</button>
+    </div>
 
-module.exports = async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST" });
-  }
-
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    return res
-      .status(500)
-      .json({ error: "ANTHROPIC_API_KEY is not set in Vercel environment variables." });
-  }
-
-  let body = req.body;
-  if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch { body = {}; }
-  }
-  const messages = Array.isArray(body && body.messages) ? body.messages : [];
-  const clean = messages
-    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-20);
-
-  if (clean.length === 0 || clean[clean.length - 1].role !== "user") {
-    return res.status(400).json({ error: "Send at least one user message." });
-  }
-
-  try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5-5",
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: clean,
-      }),
-    });
-
-    const data = await r.json();
-    if (!r.ok) {
-      const msg = (data && data.error && data.error.message) || "The AI service returned an error.";
-      return res.status(r.status).json({ error: msg });
-    }
-
-    const reply = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-
-    return res.status(200).json({ reply: reply || "(no answer returned)" });
-  } catch (err) {
-    return res.status(500).json({ error: "Server error: " + err.message });
-  }
-};
+    <div class="chat">
+      <div class="status" id="status">● Ready to help</div>
+      <div id="log">
+        <div
