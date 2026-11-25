@@ -1,5 +1,6 @@
 // Vercel serverless function: POST /api/chat
-// Needs an environment variable named ANTHROPIC_API_KEY in Vercel.
+// Needs an environment variable named OPENAI_API_KEY in Vercel.
+// Optional: set OPENAI_MODEL in Vercel to change the model without editing code.
 
 const SYSTEM_PROMPT =
   "You are StudentHelper, a friendly study assistant for school students. " +
@@ -12,11 +13,11 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Use POST" });
   }
 
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   if (!key) {
     return res
       .status(500)
-      .json({ error: "ANTHROPIC_API_KEY is not set in Vercel environment variables." });
+      .json({ error: "OPENAI_API_KEY is not set in Vercel environment variables." });
   }
 
   let body = req.body;
@@ -33,18 +34,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + key,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-5-5",
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: clean,
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...clean],
       }),
     });
 
@@ -54,10 +52,8 @@ module.exports = async function handler(req, res) {
       return res.status(r.status).json({ error: msg });
     }
 
-    const reply = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    const reply =
+      data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
 
     return res.status(200).json({ reply: reply || "(no answer returned)" });
   } catch (err) {
