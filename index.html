@@ -1,75 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StudentHelper</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
-</head>
+// Vercel serverless function: POST /api/chat
+// Needs an environment variable named ANTHROPIC_API_KEY in Vercel.
 
-<body>
-  <main class="app">
-    <header class="header">
-      <div class="logo">SH</div>
-      <div>
-        <h1>StudentHelper</h1>
-        <p>Your personal study assistant</p>
-      </div>
-    </header>
+const SYSTEM_PROMPT =
+  "You are StudentHelper, a friendly study assistant for school students. " +
+  "Explain things step by step in simple language, use short examples, and " +
+  "check understanding with a quick follow-up question when helpful. " +
+  "For homework, guide the student toward the answer rather than just giving it.";
 
-    <section class="welcome">
-      <h2>What would you like to learn today?</h2>
-      <p>Choose a subject or type a question below.</p>
-    </section>
+module.exports = async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Use POST" });
+  }
 
-    <section class="subjects" aria-label="Choose a subject">
-      <button class="subject-button" type="button" data-subject="Math">
-        📐 Math
-      </button>
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    return res
+      .status(500)
+      .json({ error: "ANTHROPIC_API_KEY is not set in Vercel environment variables." });
+  }
 
-      <button class="subject-button" type="button" data-subject="Science">
-        🔬 Science
-      </button>
+  let body = req.body;
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+  const messages = Array.isArray(body && body.messages) ? body.messages : [];
+  const clean = messages
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .slice(-20);
 
-      <button class="subject-button" type="button" data-subject="English">
-        📚 English
-      </button>
+  if (clean.length === 0 || clean[clean.length - 1].role !== "user") {
+    return res.status(400).json({ error: "Send at least one user message." });
+  }
 
-      <button class="subject-button" type="button" data-subject="Social Studies">
-        🌎 Social Studies
-      </button>
-    </section>
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5-5",
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: clean,
+      }),
+    });
 
-    <section class="chat-section">
-      <div class="chat-heading">
-        <h2>Chat with StudentHelper</h2>
-        <span class="online-status">● Ready to help</span>
-      </div>
+    const data = await r.json();
+    if (!r.ok) {
+      const msg = (data && data.error && data.error.message) || "The AI service returned an error.";
+      return res.status(r.status).json({ error: msg });
+    }
 
-      <div id="chat" class="chat" aria-live="polite">
-        <div class="message bot-message">
-          Hi! I'm StudentHelper. Pick a subject or ask me a school question.
-          I'll do my best to explain it step by step!
-        </div>
-      </div>
+    const reply = (data.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("");
 
-      <form id="chat-form" class="chat-form">
-        <input
-          id="user-input"
-          type="text"
-          placeholder="Ask me a question..."
-          autocomplete="off"
-          required
-        >
-
-        <button id="send-button" type="submit">Send</button>
-      </form>
-
-      <p class="small-note">
-        StudentHelper is a learning tool. Check important answers with your teacher or textbook.
-      </p>
-    </section>
-  </main>
-</body>
-</html>
+    return res.status(200).json({ reply: reply || "(no answer returned)" });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error: " + err.message });
+  }
+};
