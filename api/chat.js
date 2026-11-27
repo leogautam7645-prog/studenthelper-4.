@@ -6,8 +6,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST" });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+const apiKey = (process.env.OPENAI_API_KEY || "").trim().replace(/^["']|["']$/g, "");  if (!apiKey) {
     return res.status(500).json({ error: "OPENAI_API_KEY is not set on the server." });
   }
 
